@@ -14,6 +14,7 @@ public:
 	virtual int getCol() const = 0;
 
 	virtual void fillFixedValue(T value) = 0;
+	virtual void fillRandomValue(T minValue, T maxValue) = 0;
 	void print() const {
 		for (int i=0;i<(*this).getRow();i++) {
 			std::cout << " > [LOGGING] ";
@@ -51,6 +52,12 @@ public:
 	void fillFixedValue(T value) override {
 		for (int i=0;i<numRows;i++)
 			std::fill(matrix[i].begin(), matrix[i].end(), value);
+	}
+
+	void fillRandomValue(T minValue, T maxValue) override {
+		for (int i=0;i<numRows;i++)
+			for (int j=0;j<numCols;j++)
+				matrix[i][j] = rand() % (maxValue - minValue) + minValue;
 	}
 
 	// try change to inplace
@@ -94,12 +101,10 @@ public:
 		std::fill(matrix.begin(), matrix.end(), value);
 	}
 
-	void print() const {
-		for (int i=0;i<numRows;i++) {
+	void fillRandomValue(T minValue, T maxValue) override {
+		for (int i=0;i<numRows;i++)
 			for (int j=0;j<numCols;j++)
-				std::cout << (*this) (i, j) << " ";
-			std::cout << std::endl;
-		}
+				(*this) (i, j) = rand() % (maxValue - minValue) + minValue;
 	}
 
 	// try change to inplace
@@ -116,14 +121,15 @@ enum EnumMatrixMatrixMultiplicationMethod {
 	SEQUENTIAL=0,
 	SEQUENTIALTRANSPOSE=1,
 	OPENMP=2,
+	PARTITIONEDOPENMP=3,
 };
 
 template <typename T>
 void gemmSequential(const MatrixBase<T>& A, const MatrixBase<T>& B, MatrixBase<T>& C) {
-	for (int i = 0; i < A.getRow(); ++i) {
-		for (int j = 0; j < B.getCol(); ++j) {
+	for (int i = 0; i < A.getRow(); i++) {
+		for (int j = 0; j < B.getCol(); j++) {
 			C(i, j) = 0;
-			for (int k = 0; k < A.getCol(); ++k) {
+			for (int k = 0; k < A.getCol(); k++) {
 				T a = A(i, k);
 				T b = B(k, j);
 				C(i, j) += a * b;
@@ -151,8 +157,8 @@ void gemmSequentialTranspose(const MatrixBase<T>& A, MatrixBase<T>& B, MatrixBas
 template <typename T>
 void gemmOpenmp(const MatrixBase<T>& A, const MatrixBase<T>& B, MatrixBase<T>& C) {
 #pragma omp parallel for 
-	for (int i = 0; i < A.getRow(); ++i) {
-		for (int j = 0; j < B.getCol(); ++j) {
+	for (int j = 0; j < B.getCol(); ++j) {
+		for (int i = 0; i < A.getRow(); ++i) {
 			C(i, j) = 0;
 			for (int k = 0; k < A.getCol(); ++k) {
 				T a = A(i, k);
@@ -163,14 +169,49 @@ void gemmOpenmp(const MatrixBase<T>& A, const MatrixBase<T>& B, MatrixBase<T>& C
 	}
 }
 
+/*
+ * Still does not work for (A.size() % blockSize > 0)
+ * TODO: add padding matrix before multiplication
+ */
+template <typename T>
+void gemmPartitionedOpenmp(const MatrixBase<T>& A, const MatrixBase<T>& B, MatrixBase<T>& C, int blockSize=64) {
+
+	assert(A.getRow() % blockSize == 0);
+	assert(B.getRow() % blockSize == 0);
+	assert(C.getCol() % blockSize == 0);
+
+	int blockMNumber = A.getRow() / blockSize;
+	int blockNNumber = B.getRow() / blockSize;
+	int blockKNumber = C.getCol() / blockSize;
+
+#pragma omp parallel for 
+	for (int bi=0;bi<blockMNumber;bi++) {
+	for (int bj=0;bj<blockNNumber;bj++) {
+	for (int bk=0;bk<blockKNumber;bk++) {
+		for (int i=0;i<blockSize;i++) {
+		for (int j=0;j<blockSize;j++) {
+			T cumulative = 0;
+			for (int k=0;k<blockSize;k++)
+				cumulative += A(bi*blockSize + i, bk*blockSize + k) * B(bk*blockSize + k,bj*blockSize + j);
+			C(bi*blockSize+i, bj*blockSize+j) += cumulative;
+		}
+	}}}}
+}
+
 template <typename T>
 void gemm(MatrixBase<T>& A, MatrixBase<T>& B, MatrixBase<T>& C, const EnumMatrixMatrixMultiplicationMethod method, int logLevel = 3) {
-
 	assert (A.getCol() == B.getRow() && C.getRow() == A.getRow() && C.getCol() == B.getCol());
+
+#pragma omp parallel for 
+	for (int i=0;i<C.getRow();i++)
+		for (int j=0;j<C.getCol();j++) 
+			C(i,j) = 0;
+
 	double startTime = omp_get_wtime();
 	if (method == SEQUENTIAL) { gemmSequential<T>(A, B, C); } 
 	else if (method == SEQUENTIALTRANSPOSE) { gemmSequentialTranspose<T>(A, B, C); }
 	else if (method == OPENMP) { gemmOpenmp<T>(A, B, C); }
+	else if (method == PARTITIONEDOPENMP) { gemmPartitionedOpenmp<T>(A, B, C, 128); }
 	double endTime = omp_get_wtime();
 
 	if (logLevel >= 3) {
@@ -185,32 +226,21 @@ void gemm(MatrixBase<T>& A, MatrixBase<T>& B, MatrixBase<T>& C, const EnumMatrix
 }
 
 int main(int argc, const char * argv[]) {
-	MatrixFlatten<float> matA(200, 300);
-	MatrixFlatten<float> matB(300, 400);
-	MatrixFlatten<float> result(200, 400);
+	MatrixFlatten<int> matA(1024, 1024);
+	MatrixFlatten<int> matB(1024, 1024);
+	MatrixFlatten<int> answer(1024, 1024);
+	MatrixFlatten<int> result(1024, 1024);
 
-	Matrix<float> mA(200, 300);
-	Matrix<float> mB(300, 400);
-	Matrix<float> res(200, 400);
-
-	matA.fillFixedValue(0.1);
-	matB.fillFixedValue(1.2);
-	gemm<float>(matA, matB, result, SEQUENTIAL, 2);
-	matA.fillFixedValue(0.1);
-	matB.fillFixedValue(1.2);
-	gemm<float>(matA, matB, result, OPENMP, 2);
-	matA.fillFixedValue(0.1);
-	matB.fillFixedValue(1.2);
+	matA.fillRandomValue(-5, 5);
+	matB.fillRandomValue(-10, 10);
+	gemm<int>(matA, matB, result, SEQUENTIAL, 2);
+	gemm<int>(matA, matB, result, OPENMP, 2);
 	// still not correct
-	gemm<float>(matA, matB, result, SEQUENTIALTRANSPOSE, 2);
+	gemm<int>(matA, matB, result, SEQUENTIALTRANSPOSE, 2);
+	gemm<int>(matA, matB, answer, PARTITIONEDOPENMP, 2);
 
-	mA.fillFixedValue(0.1);
-	mB.fillFixedValue(1.2);
-	gemm<float>(mA, mB, res, SEQUENTIAL, 2);
-	mA.fillFixedValue(0.1);
-	mB.fillFixedValue(1.2);
-	gemm<float>(mA, mB, res, OPENMP, 2);
-	mA.fillFixedValue(0.1);
-	mB.fillFixedValue(1.2);
-	gemm<float>(mA, mB, res, SEQUENTIALTRANSPOSE, 2);
+	for (int i=0;i<matA.getRow();i++)
+		for (int j=0;j<matB.getCol();j++) 
+			assert(result(i, j) == answer(i,j));
+
 }
