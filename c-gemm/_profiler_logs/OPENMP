@@ -1,0 +1,12 @@
+ Performance counter stats for './t':
+
+         57,023.82 msec task-clock:u                     #  188.679 CPUs utilized
+   155,690,180,422      cycles:u                         #    2.730 GHz
+   221,398,774,091      instructions:u                   #    1.42  insn per cycle
+     2,321,056,138      cache-references:u               #   40.703 M/sec
+        69,402,213      cache-misses:u                   #    2.99% of all cache refs
+
+       0.302226087 seconds time elapsed
+
+      56.906057000 seconds user
+       0.063773000 seconds sys

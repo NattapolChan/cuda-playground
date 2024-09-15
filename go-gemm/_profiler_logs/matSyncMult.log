@@ -1,0 +1,12 @@
+ Performance counter stats for 'go run gemm.go':
+
+         52,178.82 msec task-clock:u                     #   32.817 CPUs utilized
+   173,497,023,965      cycles:u                         #    3.325 GHz
+    50,789,913,417      instructions:u                   #    0.29  insn per cycle
+     3,915,737,336      cache-references:u               #   75.045 M/sec
+       705,007,880      cache-misses:u                   #   18.00% of all cache refs
+
+       1.590003103 seconds time elapsed
+
+      50.299001000 seconds user
+       1.963239000 seconds sys
