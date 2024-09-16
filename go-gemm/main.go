@@ -11,8 +11,8 @@ var N int
 var K int
 
 func main() {
-	M = 1024
-	N = 1024
+	M = 4096
+	N = 2048
 	K = 1024
 	matA := make([]int, M*N)
 	matB := make([]int, N*K)
@@ -113,34 +113,32 @@ func matSyncMult(matrixA *[]int, matrixB *[]int) []int {
 
 // TO FIX
 func matMultPartitioned(matrixA *[]int, matrixB *[]int) []int {
-	blockSize := 128
-	workerLimit := make(chan struct{}, 32)
+	blockSize := 64
+	workerLimit := make(chan struct{}, 16)
 	matC := make([]int, M*K)
 	var wg sync.WaitGroup
 
 	for i:=0; i<M/blockSize; i++ {
 		for j:=0;j<N/blockSize; j++ {
 			for k:=0;k<K/blockSize; k++ {
-				wg.Add(blockSize * blockSize)
-				for bi:=0; bi<blockSize;bi++ {
-					for bk:=0;bk<blockSize;bk++ {
-						workerLimit <- struct{}{}
-						go func (i int, j int, k int, bi int, bk int) {
-							defer func() {
-								wg.Done()
-								<-workerLimit
-							}()
-							idc := i*blockSize*K + bi*K + k*blockSize + bk
-							for it:=0;it<blockSize;it++ {
-								ida := i*blockSize*N + bi*N + j*blockSize + it
-								idb := j*blockSize*K + it*K + k*blockSize + bk
-								A := (*matrixA)[ida] 
-								B := (*matrixB)[idb]
-								matC[idc] +=  A * B 
-							}
-						} (i, j, k, bi, bk)
+				wg.Add(1)
+				workerLimit <- struct{}{}
+				go func (i, j, k int) {
+					defer func() {
+						wg.Done()
+						<-workerLimit
+					}()
+					for bi:=0; bi<blockSize;bi++ {
+						for bk:=0;bk<blockSize;bk++ {
+								idc := i*blockSize*K + bi*K + k*blockSize + bk
+								for it:=0;it<blockSize;it++ {
+									ida := i*blockSize*N + bi*N + j*blockSize + it
+									idb := j*blockSize*K + it*K + k*blockSize + bk
+									matC[idc] += (*matrixA)[ida] * (*matrixB)[idb]
+								}
+						}
 					}
-				}
+				} (i, j, k)
 			}
 		}
 	}
