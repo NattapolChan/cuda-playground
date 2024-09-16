@@ -27,7 +27,6 @@ func PrintMatrix(matrix *[]int, rows int, cols int) {
 		fmt.Println()
 	}
 }
-
 func GetMatrixMultiplicationAlg(matMultType string) (func(*[]int, *[]int, int, int, int) []int, error) {
 
 	if matMultFunc, ok := matMultRegistry[matMultType]; ok {
@@ -35,4 +34,12 @@ func GetMatrixMultiplicationAlg(matMultType string) (func(*[]int, *[]int, int, i
 	}
 
 	return nil, errors.New("function not found in registry, check matmult/matMult.go")
+}
+
+func GetRegistryList() []string {
+	keys := make([]string, 0, len(matMultRegistry))
+	for key := range matMultRegistry {
+		keys = append(keys, key)
+	}
+	return keys
 }

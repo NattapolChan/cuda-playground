@@ -1,12 +1,16 @@
- Performance counter stats for 'go run gemm.go':
+matrix mult run in  9.233049206s
 
-         57,855.08 msec task-clock:u                     #    4.586 CPUs utilized
-    79,410,569,930      cycles:u                         #    1.373 GHz
-    82,467,357,103      instructions:u                   #    1.04  insn per cycle
-     3,668,270,370      cache-references:u               #   63.404 M/sec
-       475,241,900      cache-misses:u                   #   12.96% of all cache refs
+ Performance counter stats for 'go run main.go -K 4096 -M 2048 -N 3072 -type matMultPartitioned':
 
-      12.614524463 seconds time elapsed
+        150,064.53 msec task-clock:u                     #   15.846 CPUs utilized             
+   541,566,648,445      cycles:u                         #    3.609 GHz                       
+   973,454,453,556      instructions:u                   #    1.80  insn per cycle            
+   103,318,783,923      cache-references:u               #  688.496 M/sec                     
+     2,076,345,744      cache-misses:u                   #    2.01% of all cache refs         
 
-      50.486924000 seconds user
-       8.206159000 seconds sys
+       9.470289574 seconds time elapsed
+
+     148.865108000 seconds user
+       1.336682000 seconds sys
+
+

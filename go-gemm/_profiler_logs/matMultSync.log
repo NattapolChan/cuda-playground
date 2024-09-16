@@ -1,0 +1,16 @@
+matrix mult run in  12.873216181s
+
+ Performance counter stats for 'go run main.go -K 4096 -M 2048 -N 3072 -type matMultSync':
+
+      1,848,024.44 msec task-clock:u                     #  139.973 CPUs utilized             
+ 6,507,456,612,009      cycles:u                         #    3.521 GHz                       
+ 1,173,860,674,609      instructions:u                   #    0.18  insn per cycle            
+   141,138,827,669      cache-references:u               #   76.373 M/sec                     
+    10,988,834,764      cache-misses:u                   #    7.79% of all cache refs         
+
+      13.202765052 seconds time elapsed
+
+    1790.602716000 seconds user
+      63.375467000 seconds sys
+
+
